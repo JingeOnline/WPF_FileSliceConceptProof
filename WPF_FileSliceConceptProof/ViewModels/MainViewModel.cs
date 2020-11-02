@@ -85,6 +85,7 @@ namespace WPF_FileSliceConceptProof
             MergeFinish = false;
         }
 
+        //分隔或切片
         private void slice()
         {
             SlicesFilesNames.Clear();
@@ -119,6 +120,7 @@ namespace WPF_FileSliceConceptProof
             }
         }
 
+        //合并
         private void merge()
         {
 
