@@ -12,6 +12,7 @@ using Prism.Mvvm;
 using Prism.Commands;
 using System.Diagnostics;
 using System.IO;
+using System.Windows.Forms;
 
 namespace WPF_FileSliceConceptProof
 {
@@ -35,8 +36,8 @@ namespace WPF_FileSliceConceptProof
         private string _sourceFileExtention;
 
 
-        private int _sliceFileSize = 100;
-        public int SliceFileSize
+        private long _sliceFileSize = 1024 * 1024;
+        public long SliceFileSize
         {
             get { return _sliceFileSize; }
             set { SetProperty(ref _sliceFileSize, value); }
@@ -58,7 +59,7 @@ namespace WPF_FileSliceConceptProof
         public MainViewModel()
         {
             SelectFileCommand = new DelegateCommand(SelectSourceFile);
-            SliceCommand = new DelegateCommand(slice);
+            SliceCommand = new DelegateCommand(slice2);
             SelectSlicesCommand = new DelegateCommand(SelectSliceFiles);
             MergeCommand = new DelegateCommand(merge);
         }
@@ -86,6 +87,7 @@ namespace WPF_FileSliceConceptProof
         }
 
         //分隔或切片
+        //使用流的方式读取，然后一次性写入。
         private void slice()
         {
             SlicesFilesNames.Clear();
@@ -95,28 +97,90 @@ namespace WPF_FileSliceConceptProof
             //Debug.WriteLine(_sourceFileExtention);
             string foler = fileInfo.DirectoryName;
             string fileName = fileInfo.Name;
-            Debug.WriteLine(foler);
+            //Debug.WriteLine(foler);
 
             using (FileStream fsRead = new FileStream(SourceFilePath, FileMode.Open, FileAccess.Read))
             {
-                int end = 0;
+                int index = 1;
                 while (true)
                 {
-                    byte[] buffer = new byte[SliceFileSize * 1024];
+                    //byte[] buffer = new byte[SliceFileSize * 1024];
+                    byte[] buffer = new byte[1024 * 1024];
                     int n = fsRead.Read(buffer, 0, buffer.Length);
-                    Debug.WriteLine("n=" + n);
+                    //Debug.WriteLine("n=" + n);
                     if (n == 0)
                     {
                         break;
                     }
-                    string outputFilePath = Path.Combine(foler, "_" + end + "." + _sourceFileExtention);
+                    string outputFilePath = Path.Combine(foler, fileName + "_" + index + "." + _sourceFileExtention);
                     SlicesFilesNames.Add(outputFilePath);
-                    Debug.WriteLine("output file path=" + outputFilePath);
+                    //Debug.WriteLine("output file path=" + outputFilePath);
                     File.WriteAllBytes(outputFilePath, buffer.Take(n).ToArray());
-                    end++;
-                    Debug.WriteLine("loop=" + end);
+                    index++;
+                    //Debug.WriteLine("loop=" + end);
                 }
 
+            }
+        }
+
+        //使用流的方式读取和写入
+        private void slice2()
+        {
+            SlicesFilesNames.Clear();
+            FileInfo fileInfo = new FileInfo(SourceFilePath);
+            string foler = fileInfo.DirectoryName;
+            string fileName = fileInfo.Name;
+            long sourceFileSize = fileInfo.Length;
+            //long currentFileSize = 0;
+            long bufferSize = 1024*1024;
+            int fileIndex = 0;
+            bool isLastSlice = false;
+            while (true)
+            {
+                string sliceFilePath = Path.Combine(foler, fileName + "_" + fileIndex + "." + _sourceFileExtention);
+                long startPosition = fileIndex * SliceFileSize;
+                isLastSlice = (fileIndex + 1) * SliceFileSize >= sourceFileSize;
+                readAndWriteOneSlice(sliceFilePath, bufferSize, startPosition, isLastSlice);
+                fileIndex++;
+                //currentFileSize += SliceFileSize;
+                if (isLastSlice)
+                {
+                    break;
+                }
+            }
+        }
+
+        private void readAndWriteOneSlice(string sliceFilePath, long bufferSize, long startPosition, bool isLastSlice)
+        {
+            long left = SliceFileSize;
+
+            using (FileStream fsRead = new FileStream(SourceFilePath, FileMode.Open, FileAccess.Read))
+            {
+                fsRead.Seek(startPosition, SeekOrigin.Begin);
+                if (isLastSlice)
+                {
+                    left = fsRead.Length;
+                    Debug.WriteLine("left=" + left);
+                }
+                using (FileStream fsWrite = new FileStream(sliceFilePath, FileMode.OpenOrCreate, FileAccess.Write))
+                {
+                    while (true)
+                    {
+                        byte[] buffer = new byte[bufferSize];
+                        if (left > bufferSize)
+                        {
+                            int n = fsRead.Read(buffer, 0, buffer.Length);
+                            fsWrite.Write(buffer, 0, n);
+                            left -= bufferSize;
+                        }
+                        else
+                        {
+                            int n = fsRead.Read(buffer, 0, Convert.ToInt32(left));
+                            fsWrite.Write(buffer, 0, n);
+                            break;
+                        }
+                    }
+                }
             }
         }
 
@@ -134,9 +198,9 @@ namespace WPF_FileSliceConceptProof
                 foreach (string filePath in SlicesFilesSelected)
                 {
                     byte[] file = File.ReadAllBytes(filePath);
-                    fsWrite.Write(file,0,file.Length);
+                    fsWrite.Write(file, 0, file.Length);
                 }
-                
+
             }
 
 

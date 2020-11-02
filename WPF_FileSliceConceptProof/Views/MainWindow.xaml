@@ -35,7 +35,7 @@
                 <TextBox HorizontalAlignment="Stretch" FontSize="14" Text="{Binding SourceFilePath,Mode=TwoWay}"
                      Grid.Column="1" Margin="4"/>
 
-                <TextBlock Text="Slice File Size (KB)"  Grid.Row="1" Margin="4"/>
+                <TextBlock Text="Slice File Size"  Grid.Row="1" Margin="4"/>
                 <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" FontSize="14" Margin="4"
                          Text="{Binding SliceFileSize}"/>
             </Grid>
